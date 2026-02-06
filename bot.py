@@ -17,7 +17,7 @@ from telegram.ext import (
 )
 
 # === НАСТРОЙКИ ===
-BOT_TOKEN = os.environ["7951383168:AAFeVrvRcR4NuukPjsk37H-yuhQYdfVY1ns"]  # ← ОБЯЗАТЕЛЬНО замените на свой токен от @BotFather
+BOT_TOKEN = os.environ["BOT_TOKEN"]  # ← ОБЯЗАТЕЛЬНО замените на свой токен от @BotFather
 ADMIN_CHAT_ID = 1490660804  # ← Ваш ID — сюда приходят идеи и сообщения
 
 # URL изображения приветствия (замените на реальный!)
@@ -308,3 +308,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
