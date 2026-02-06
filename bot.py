@@ -3,7 +3,6 @@ import asyncio
 import logging
 import random
 from datetime import datetime
-import httpx
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -21,12 +20,12 @@ from telegram.ext import (
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-ADMIN_CHAT_ID = 1490660804
+MAIN_ADMIN_ID = int(os.environ.get("MAIN_ADMIN_ID", "1490660804"))
+REGULAR_ADMINS_STR = os.environ.get("REGULAR_ADMINS", "").strip()
+REGULAR_ADMINS = set(int(x.strip()) for x in REGULAR_ADMINS_STR.split(",") if x.strip().isdigit())
 
-# === НАСТРОЙКИ ИИ (Groq) ===
-AI_API_KEY = os.environ.get("AI_API_KEY")
-AI_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-AI_MODEL = "llama3-70b-8192"  # отлично работает на русском
+# Все админы (для рассылки)
+ALL_ADMINS = {MAIN_ADMIN_ID} | REGULAR_ADMINS
 
 # === ИЗОБРАЖЕНИЕ ===
 WELCOME_IMAGE_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxa_g7qQ8If0sQ0ahHso6bCVdFaGcy9_xvfw&s"
@@ -124,8 +123,6 @@ KNOWN_USERS = set()
 USER_STATES = {}
 BROADCAST_SENDER = {}
 GAME_SCORES = {}
-AI_MODE_USERS = set()
-AI_CHAT_HISTORY = {}
 
 # === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 
@@ -133,7 +130,7 @@ def main_menu_keyboard():
     return [
         ["Для родителей", "Для учителей"],
         ["Для учеников", "О разработке/оценить"],
-        ["Выбор Предмета", "Чат с ИИ"]
+        ["Выбор Предмета"]  # ← ИИ удалён
     ]
 
 async def send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -171,11 +168,35 @@ async def clear_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def restart_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await start(update, context)
 
+# === АДМИН-ПАНЕЛЬ ===
+
+async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != MAIN_ADMIN_ID:
+        await update.message.reply_text("❌ Доступ запрещён.")
+        return
+
+    # Формируем список обычных админов
+    if REGULAR_ADMINS:
+        admins_list = "\n".join([f"`{aid}`" for aid in sorted(REGULAR_ADMINS)])
+        text = f"👑 *Админ-панель*\n\nОбычные админы:\n{admins_list}"
+    else:
+        text = "👑 *Админ-панель*\n\nОбычных админов нет."
+
+    keyboard = [
+        [InlineKeyboardButton("➕ Назначить админа", callback_data="admin_add")],
+        [InlineKeyboardButton("➖ Удалить админа", callback_data="admin_remove")],
+        [InlineKeyboardButton("🔙 Закрыть", callback_data="back_to_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+
 # === РАССЫЛКА ===
 
 async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_CHAT_ID:
-        await update.message.reply_text("❌ Эта команда доступна только администратору.")
+    user_id = update.effective_user.id
+    if user_id not in ALL_ADMINS:
+        await update.message.reply_text("❌ Эта команда доступна только администраторам.")
         return
 
     keyboard = [
@@ -191,48 +212,48 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text
 
-    # === РЕЖИМ ИИ ===
-    if user_id in AI_MODE_USERS and AI_API_KEY:
-        AI_CHAT_HISTORY.setdefault(user_id, [])
-        AI_CHAT_HISTORY[user_id].append({"role": "user", "content": text})
+    # === РЕЖИМ НАЗНАЧЕНИЯ АДМИНА ===
+    if USER_STATES.get(MAIN_ADMIN_ID) == "admin_add":
+        if user_id == MAIN_ADMIN_ID:
+            try:
+                new_admin_id = int(text.strip())
+                if new_admin_id == MAIN_ADMIN_ID:
+                    await update.message.reply_text("⚠️ Это вы — главный админ!")
+                elif new_admin_id in REGULAR_ADMINS:
+                    await update.message.reply_text("⚠️ Этот пользователь уже админ.")
+                else:
+                    # Обновляем список
+                    new_list = list(REGULAR_ADMINS) + [new_admin_id]
+                    new_list_str = ",".join(str(x) for x in new_list)
+                    # Сохраняем в памяти (на время сессии)
+                    REGULAR_ADMINS.add(new_admin_id)
+                    ALL_ADMINS.add(new_admin_id)
+                    await update.message.reply_text(f"✅ Пользователь `{new_admin_id}` назначен админом.", parse_mode="Markdown")
+                    USER_STATES[MAIN_ADMIN_ID] = None
+                    # Перезапуск не требуется, но в реальности нужно сохранять в БД или файл
+            except ValueError:
+                await update.message.reply_text("❌ Неверный ID. Отправьте числовой ID.")
+        return
 
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    AI_API_URL,
-                    headers={
-                        "Authorization": f"Bearer {AI_API_KEY}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": AI_MODEL,
-                        "messages": [{"role": "system", "content": "Вы — помощник гимназии №196. Отвечайте кратко, по делу, на русском языке."}] +
-                                   AI_CHAT_HISTORY[user_id][-8:],  # последние 8 сообщений
-                        "temperature": 0.7,
-                        "max_tokens": 1000
-                    }
-                )
-                if response.status_code != 200:
-                    raise Exception(f"Ошибка: {response.status_code}")
-
-                data = response.json()
-                ai_reply = data["choices"][0]["message"]["content"].strip()
-                AI_CHAT_HISTORY[user_id].append({"role": "assistant", "content": ai_reply})
-
-                keyboard = [[InlineKeyboardButton("🏠 Вернуться в меню", callback_data="exit_ai")]]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                await update.message.reply_text(ai_reply, reply_markup=reply_markup)
-
-        except Exception as e:
-            logging.error(f"Ошибка ИИ: {e}")
-            await update.message.reply_text(
-                "⚠️ Не удалось получить ответ от нейросети. Попробуйте позже.",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Вернуться в меню", callback_data="exit_ai")]])
-            )
+    if USER_STATES.get(MAIN_ADMIN_ID) == "admin_remove":
+        if user_id == MAIN_ADMIN_ID:
+            try:
+                admin_id = int(text.strip())
+                if admin_id == MAIN_ADMIN_ID:
+                    await update.message.reply_text("❌ Нельзя удалить главного админа!")
+                elif admin_id not in REGULAR_ADMINS:
+                    await update.message.reply_text("❌ Такого админа нет.")
+                else:
+                    REGULAR_ADMINS.discard(admin_id)
+                    ALL_ADMINS.discard(admin_id)
+                    await update.message.reply_text(f"✅ Админ `{admin_id}` удалён.", parse_mode="Markdown")
+                    USER_STATES[MAIN_ADMIN_ID] = None
+            except ValueError:
+                await update.message.reply_text("❌ Неверный ID.")
         return
 
     # === РАССЫЛКА ===
-    if user_id == ADMIN_CHAT_ID and USER_STATES.get(user_id) == "broadcast_text":
+    if user_id in ALL_ADMINS and USER_STATES.get(user_id) == "broadcast_text":
         sender = BROADCAST_SENDER.get(user_id, "Админ")
         message_text = text
         date_str = datetime.now().strftime("%d.%m.%Y %H:%M")
@@ -264,7 +285,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         BROADCAST_SENDER.pop(user_id, None)
         return
 
-    # === ПРЕДЛОЖЕНИЕ ИДЕИ ===
+    # === ПРЕДЛОЖЕНИЕ ИДЕИ (ТОЛЬКО ГЛАВНОМУ АДМИНУ) ===
     if USER_STATES.get(user_id) == "waiting_for_idea":
         username = update.effective_user.username or "без_юзернейма"
         idea_msg = (
@@ -274,7 +295,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{text}"
         )
         try:
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=idea_msg, parse_mode="Markdown")
+            await context.bot.send_message(chat_id=MAIN_ADMIN_ID, text=idea_msg, parse_mode="Markdown")
         except Exception as e:
             logging.error(f"Ошибка отправки идеи: {e}")
         await update.message.reply_text("✅ Спасибо! Ваша идея отправлена разработчикам.")
@@ -283,7 +304,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_main_menu(update, context)
         return
 
-    # === АНОНИМНАЯ СВЯЗЬ ===
+    # === АНОНИМНАЯ СВЯЗЬ (ВСЕМ АДМИНАМ) ===
     if USER_STATES.get(user_id) == "in_contact":
         username = update.effective_user.username or "без_юзернейма"
         contact_msg = (
@@ -292,11 +313,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Username: @{username}\n\n"
             f"{text}"
         )
-        try:
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=contact_msg, parse_mode="Markdown")
-            await update.message.reply_text("✅ Сообщение отправлено администрации гимназии!")
-        except Exception as e:
-            await update.message.reply_text("❌ Не удалось отправить. Попробуйте позже.")
+        # Отправляем всем админам
+        for admin_id in ALL_ADMINS:
+            try:
+                await context.bot.send_message(chat_id=admin_id, text=contact_msg, parse_mode="Markdown")
+            except Exception as e:
+                logging.warning(f"Не удалось отправить админу {admin_id}: {e}")
+        await update.message.reply_text("✅ Сообщение отправлено администрации гимназии!")
         USER_STATES[user_id] = None
         await send_main_menu(update, context)
         return
@@ -362,22 +385,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text("Выберите предмет:", reply_markup=reply_markup)
 
-    elif text == "Чат с ИИ":
-        if not AI_API_KEY:
-            await update.message.reply_text("❌ ИИ временно недоступен.")
-            return
-
-        AI_MODE_USERS.add(user_id)
-        AI_CHAT_HISTORY[user_id] = []
-        keyboard = [[InlineKeyboardButton("🏠 Вернуться в меню", callback_data="exit_ai")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(
-            "🧠 Вы вошли в чат с нейросетью.\n"
-            "Задавайте любые вопросы — об учёбе, гимназии, домашних заданиях и т.д.\n\n"
-            "Чтобы выйти — нажмите кнопку ниже.",
-            reply_markup=reply_markup
-        )
-
 # === CALLBACK-ОБРАБОТЧИК ===
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -389,11 +396,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.delete()
         await send_main_menu(update, context)
 
-    elif query.data == "exit_ai":
-        AI_MODE_USERS.discard(user_id)
-        AI_CHAT_HISTORY.pop(user_id, None)
-        await query.message.delete()
-        await send_main_menu(update, context)
+    elif query.data == "admin_add":
+        if user_id == MAIN_ADMIN_ID:
+            USER_STATES[MAIN_ADMIN_ID] = "admin_add"
+            await query.message.edit_text("Введите Telegram ID нового админа:")
+    elif query.data == "admin_remove":
+        if user_id == MAIN_ADMIN_ID:
+            USER_STATES[MAIN_ADMIN_ID] = "admin_remove"
+            await query.message.edit_text("Введите Telegram ID админа для удаления:")
 
     elif query.data == "contact_admin":
         USER_STATES[user_id] = "in_contact"
@@ -530,14 +540,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(message, parse_mode="Markdown", disable_web_page_preview=True, reply_markup=reply_markup)
 
     elif query.data == "broadcast_sender_admin":
-        BROADCAST_SENDER[ADMIN_CHAT_ID] = "Админ"
-        await query.message.edit_text("Напишите текст рассылки.")
-        USER_STATES[ADMIN_CHAT_ID] = "broadcast_text"
+        if user_id in ALL_ADMINS:
+            BROADCAST_SENDER[user_id] = "Админ"
+            await query.message.edit_text("Напишите текст рассылки.")
+            USER_STATES[user_id] = "broadcast_text"
 
     elif query.data == "broadcast_sender_gym":
-        BROADCAST_SENDER[ADMIN_CHAT_ID] = "Администрация гимназии"
-        await query.message.edit_text("Напишите текст рассылки.")
-        USER_STATES[ADMIN_CHAT_ID] = "broadcast_text"
+        if user_id in ALL_ADMINS:
+            BROADCAST_SENDER[user_id] = "Администрация гимназии"
+            await query.message.edit_text("Напишите текст рассылки.")
+            USER_STATES[user_id] = "broadcast_text"
 
 # === ОСНОВНАЯ ФУНКЦИЯ ===
 
@@ -548,6 +560,7 @@ def main():
     application.add_handler(CommandHandler("clear", clear_chat))
     application.add_handler(CommandHandler("restart", restart_bot))
     application.add_handler(CommandHandler("broadcast", broadcast_start))
+    application.add_handler(CommandHandler("admin", admin_panel))  # ← новая команда
     application.add_handler(CommandHandler("contact", lambda u, c: u.message.reply_text("Используйте раздел «Для родителей» → «Связь».")))
     application.add_handler(CommandHandler("idea", lambda u, c: u.message.reply_text("Используйте раздел «О разработке» → «Предложить идею».")))
 
