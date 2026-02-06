@@ -2,6 +2,7 @@ import os
 import asyncio
 import logging
 import random
+from datetime import datetime
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -18,20 +19,22 @@ from telegram.ext import (
 )
 
 # === НАСТРОЙКИ ===
-BOT_TOKEN = os.environ["BOT_TOKEN"]  # ← ОБЯЗАТЕЛЬНО замените на свой токен от @BotFather
-ADMIN_CHAT_ID = 1490660804  # ← Ваш ID — сюда приходят идеи и сообщения
+BOT_TOKEN = os.environ["BOT_TOKEN"]
+ADMIN_CHAT_ID = 1490660804  # Ваш ID
 
-# URL изображения приветствия (замените на реальный!)
-WELCOME_IMAGE_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxa_g7qQ8If0sQ0ahHso6bCVdFaGcy9_xvfw&s"  # ← ЗАМЕНИТЕ НА СВОЙ URL!
+# Рабочая ссылка на изображение
+WELCOME_IMAGE_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxa_g7qQ8If0sQ0ahHso6bCVdFaGcy9_xvfw&s"
 
 # === ЛОГИРОВАНИЕ ===
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# === ГЛОБАЛЬНЫЕ СОСТОЯНИЯ ПОЛЬЗОВАТЕЛЕЙ ===
-USER_STATES = {}  # user_id -> состояние ('waiting_for_idea', 'in_contact')
-GAME_SCORES = {}  # user_id -> {'user': int, 'bot': int}
+# === ХРАНЕНИЕ ДАННЫХ ===
+KNOWN_USERS = set()  # Все пользователи, писавшие боту
+USER_STATES = {}     # Состояния: 'waiting_for_idea', 'in_contact', 'broadcast_text'
+BROADCAST_SENDER = {}  # {user_id: "Админ" или "Администрация гимназии"}
+GAME_SCORES = {}
 
 # === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 
@@ -45,85 +48,121 @@ def main_menu_keyboard():
 async def send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = main_menu_keyboard()
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
-    await update.message.reply_text(
-        "Здравствуйте, вы попали в телеграм бота *Гимназии 196 Красногвардейского района Санкт-Петербурга*.\n"
-        "Выберите нужный вам пункт.",
-        parse_mode="Markdown",
-        reply_markup=reply_markup
-    )
+    await update.message.reply_text("👇", reply_markup=reply_markup)
 
 # === КОМАНДЫ ===
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    KNOWN_USERS.add(user_id)  # Запоминаем пользователя
+
     try:
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=WELCOME_IMAGE_URL,
-            caption="Здравствуйте, вы попали в телеграм бота *Гимназии 196 Красногвардейского района Санкт-Петербурга*.\n"
-                    "Выберите нужный вам пункт.",
+            caption="Здравствуйте, вы попали в телеграм бота *Гимназии 196 Красногвардейского района Санкт-Петербурга*.\nВыберите нужный вам пункт.",
             parse_mode="Markdown"
         )
     except Exception as e:
-        logging.error(f"Ошибка загрузки изображения: {e}")
+        logging.warning(f"Не удалось загрузить изображение: {e}")
         await update.message.reply_text(
-            "Здравствуйте! Бот Гимназии №196 готов помочь.\nВыберите пункт меню.",
+            "Здравствуйте, вы попали в телеграм бота *Гимназии 196 Красногвардейского района Санкт-Петербурга*.\nВыберите нужный вам пункт.",
             parse_mode="Markdown"
         )
+    
     await send_main_menu(update, context)
 
 async def clear_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for _ in range(50):
-        await update.message.reply_text("⠀")  # Невидимый символ
+        await update.message.reply_text("⠀")
     await send_main_menu(update, context)
 
 async def restart_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await start(update, context)
 
-# === ОБРАБОТКА ТЕКСТОВЫХ СООБЩЕНИЙ ===
+# === РАССЫЛКА ===
+
+async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_CHAT_ID:
+        await update.message.reply_text("❌ Эта команда доступна только администратору.")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton("👤 Админ", callback_data="broadcast_sender_admin")],
+        [InlineKeyboardButton("🏛 Администрация гимназии", callback_data="broadcast_sender_gym")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("📤 Выберите отправителя рассылки:", reply_markup=reply_markup)
+
+# === ОБРАБОТКА ТЕКСТА ===
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
     user_id = update.effective_user.id
+    text = update.message.text
 
+    # === РАССЫЛКА ===
+    if user_id == ADMIN_CHAT_ID and USER_STATES.get(user_id) == "broadcast_text":
+        sender = BROADCAST_SENDER.get(user_id, "Админ")
+        message_text = text
+        date_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+        success_count = 0
+        failed_count = 0
+        for chat_id in KNOWN_USERS:
+            try:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=(
+                        f"📩 *{sender}*\n"
+                        f"📅 {date_str}\n\n"
+                        f"{message_text}"
+                    ),
+                    parse_mode="Markdown"
+                )
+                success_count += 1
+            except Exception as e:
+                logging.warning(f"Не удалось отправить {chat_id}: {e}")
+                failed_count += 1
+
+        await update.message.reply_text(
+            f"✅ Рассылка завершена!\n"
+            f"Успешно: {success_count}\n"
+            f"Неудачно: {failed_count}"
+        )
+        USER_STATES[user_id] = None
+        BROADCAST_SENDER.pop(user_id, None)
+        return
+
+    # === ПРЕДЛОЖЕНИЕ ИДЕИ ===
     if USER_STATES.get(user_id) == "waiting_for_idea":
-        # Отправка идеи админу
         username = update.effective_user.username or "без_юзернейма"
-        idea_text = (
+        idea_msg = (
             f"💡 *Новая идея от пользователя*\n"
             f"ID: `{user_id}`\n"
             f"Username: @{username}\n\n"
-            f"{update.message.text}"
+            f"{text}"
         )
         try:
-            await context.bot.send_message(
-                chat_id=ADMIN_CHAT_ID,
-                text=idea_text,
-                parse_mode="Markdown"
-            )
+            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=idea_msg, parse_mode="Markdown")
         except Exception as e:
-            logging.error(f"Не удалось отправить идею: {e}")
+            logging.error(f"Ошибка отправки идеи: {e}")
         await update.message.reply_text("✅ Спасибо! Ваша идея отправлена разработчикам.")
         USER_STATES[user_id] = None
-        # Автоматический возврат через 30 сек
         await asyncio.sleep(30)
         await send_main_menu(update, context)
         return
 
+    # === АНОНИМНАЯ СВЯЗЬ ===
     if USER_STATES.get(user_id) == "in_contact":
-        # Анонимное сообщение админу
         username = update.effective_user.username or "без_юзернейма"
-        msg_text = (
+        contact_msg = (
             f"📩 *Анонимное сообщение от пользователя*\n"
             f"ID: `{user_id}`\n"
             f"Username: @{username}\n\n"
-            f"{update.message.text}"
+            f"{text}"
         )
         try:
-            await context.bot.send_message(
-                chat_id=ADMIN_CHAT_ID,
-                text=msg_text,
-                parse_mode="Markdown"
-            )
+            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=contact_msg, parse_mode="Markdown")
             await update.message.reply_text("✅ Сообщение отправлено администрации гимназии!")
         except Exception as e:
             await update.message.reply_text("❌ Не удалось отправить. Попробуйте позже.")
@@ -131,10 +170,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_main_menu(update, context)
         return
 
-    # Обработка кнопок главного меню
+    # === ГЛАВНОЕ МЕНЮ ===
     if text == "Для родителей":
         keyboard = [
-            [InlineKeyboardButton("🌐 Сайт", url="http://www.196.edusite.ru")],
+            [InlineKeyboardButton("🌐 Сайт", url="https://196spb.edusite.ru/")],
             [InlineKeyboardButton(".VK ВКонтакте", url="https://vk.com/gym196")],
             [InlineKeyboardButton("📞 Связь", callback_data="contact_admin")],
             [InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")]
@@ -143,7 +182,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Гимназия №196 в Санкт-Петербурге – это образовательное учреждение, предлагающее широкий спектр учебных программ.\n"
             "Адрес: Санкт-Петербург, пр. Ударников, 31.\n"
-            "Контакты:\nТелефон: +7 (812) 417-22-02\nЭлектронная почта: school196@bk.ru",
+            "Контакты:\nТелефон: +7 (812) 417-22-02\nЭлектронная почта: school196@bk.ru.",
             reply_markup=reply_markup
         )
 
@@ -206,17 +245,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "contact_admin":
         USER_STATES[user_id] = "in_contact"
         await query.message.edit_text(
-            "Напишите своё сообщение. Оно будет анонимно передано администрации гимназии.\n"
-            "После отправки вы вернётесь в главное меню."
+            "Напишите своё сообщение. Оно будет анонимно передано администрации гимназии."
         )
 
     elif query.data == "suggest_idea":
         USER_STATES[user_id] = "waiting_for_idea"
         await query.message.edit_text(
-            "Напишите свою идею по улучшению бота. Мы обязательно её прочитаем!\n"
-            "Через 30 секунд вы автоматически вернётесь в главное меню."
+            "Напишите свою идею. Через 30 секунд вы вернётесь в главное меню."
         )
-        # Таймер на 30 сек
         async def auto_return():
             await asyncio.sleep(30)
             if USER_STATES.get(user_id) == "waiting_for_idea":
@@ -281,9 +317,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif query.data.startswith("subject_"):
-        await query.message.edit_text("📚 Материалы по этому предмету скоро появятся!")
+        await query.message.edit_text("Пока ничего нет.")
         await asyncio.sleep(2)
         await send_main_menu(update, context)
+
+    # === РАССЫЛКА: выбор отправителя ===
+    elif query.data == "broadcast_sender_admin":
+        BROADCAST_SENDER[ADMIN_CHAT_ID] = "Админ"
+        await query.message.edit_text("Напишите текст рассылки.")
+        USER_STATES[ADMIN_CHAT_ID] = "broadcast_text"
+
+    elif query.data == "broadcast_sender_gym":
+        BROADCAST_SENDER[ADMIN_CHAT_ID] = "Администрация гимназии"
+        await query.message.edit_text("Напишите текст рассылки.")
+        USER_STATES[ADMIN_CHAT_ID] = "broadcast_text"
 
 # === ОСНОВНАЯ ФУНКЦИЯ ===
 
@@ -294,20 +341,16 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("clear", clear_chat))
     application.add_handler(CommandHandler("restart", restart_bot))
+    application.add_handler(CommandHandler("broadcast", broadcast_start))
     application.add_handler(CommandHandler("contact", lambda u, c: u.message.reply_text("Используйте раздел «Для родителей» → «Связь».")))
     application.add_handler(CommandHandler("idea", lambda u, c: u.message.reply_text("Используйте раздел «О разработке» → «Предложить идею».")))
 
-    # Callback-кнопки
+    # Обработчики
     application.add_handler(CallbackQueryHandler(button_handler))
-
-    # Все текстовые сообщения
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("✅ Бот запущен и готов принимать сообщения!")
-    print(f"📬 Все идеи и сообщения будут приходить вам (ID: {ADMIN_CHAT_ID})")
+    logging.info("Бот запущен...")
     application.run_polling()
 
 if __name__ == "__main__":
     main()
-
-
