@@ -25,15 +25,98 @@ ADMIN_CHAT_ID = 1490660804  # Ваш ID
 # Рабочая ссылка на изображение
 WELCOME_IMAGE_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxa_g7qQ8If0sQ0ahHso6bCVdFaGcy9_xvfw&s"
 
+# === СПИСОК УЧИТЕЛЕЙ ПО ПРЕДМЕТАМ ===
+SUBJECT_TEACHERS = {
+    "Математика": [
+        {"name": "Деянова И.С.", "url": "https://sites.google.com/site/ucitelskijklub196/kafedra-matematiki/deanova-i-s"},
+        {"name": "Иванова О.И.", "url": "https://sites.google.com/site/ucitelskijklub196/kafedra-matematiki/ivanova-o-i"},
+        {"name": "Корчагина С.М.", "url": "https://sites.google.com/site/ucitelskijklub196/kafedra-matematiki/korcagina-svetlana-mihajlovna"},
+        {"name": "Ефимов С.В.", "url": None},
+    ],
+    "Русский Язык и Литература": [
+        {"name": "Егорова С.В.", "url": "https://sites.google.com/site/ucitelskijklub196/%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-%D1%8F%D0%B7%D1%8B%D0%BA-%D0%B8-%D0%BB%D0%B8%D1%82%D0%B5%D1%80%D0%B0%D1%82%D1%83%D1%80%D0%B0/egorova-s-v"},
+        {"name": "Леонтьева И.Г.", "url": "https://sites.google.com/site/ucitelskijklub196/%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-%D1%8F%D0%B7%D1%8B%D0%BA-%D0%B8-%D0%BB%D0%B8%D1%82%D0%B5%D1%80%D0%B0%D1%82%D1%83%D1%80%D0%B0/leonteva-i-g"},
+        {"name": "Паневина Л.В.", "url": "https://sites.google.com/site/ucitelskijklub196/%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-%D1%8F%D0%B7%D1%8B%D0%BA-%D0%B8-%D0%BB%D0%B8%D1%82%D0%B5%D1%80%D0%B0%D1%82%D1%83%D1%80%D0%B0/panevina-l-v"},
+        {"name": "Пищенко Л.В.", "url": None},
+        {"name": "Селицкая В.В.", "url": None},
+        {"name": "Шевченко С.Ф.", "url": None},
+    ],
+    "Иностранные Языки": [
+        {"name": "Бондаренко Л.И.", "url": None},
+        {"name": "Варлашкина Е.А.", "url": None},
+        {"name": "Войлокова И.А.", "url": None},
+        {"name": "Дорощенко С.Г.", "url": None},
+        {"name": "Екимова О.М.", "url": None},
+        {"name": "Ефимова С.В.", "url": None},
+        {"name": "Иванова Е.В.", "url": None},
+        {"name": "Каркалайнен И.В.", "url": None},
+        {"name": "Кудрявцева С.И.", "url": None},
+        {"name": "Леднева О.Ю.", "url": None},
+        {"name": "Магомедова Н.Г.", "url": None},
+        {"name": "Михайловская А.В.", "url": None},
+        {"name": "Панфилова Н.В.", "url": None},
+        {"name": "Погребная Ю.С.", "url": None},
+        {"name": "Рябова Е.В.", "url": None},
+        {"name": "Стефановская А.Р.", "url": None},
+        {"name": "Тимофеева А.И.", "url": None},
+        {"name": "Шелухина А.В.", "url": None},
+    ],
+    "Обществознание": [
+        {"name": "Дмитриева В.С.", "url": None},
+        {"name": "Ковалькова М.А.", "url": None},
+        {"name": "Шумилова Е.В.", "url": None},
+        {"name": "Бершадская Е.Л.", "url": None},
+        {"name": "Карамян А.Г.", "url": None},
+        {"name": "Кашина Н.В.", "url": None},
+        {"name": "Моисенкова А.Р.", "url": None},
+    ],
+    "История": [
+        {"name": "Дмитриева В.С.", "url": None},
+        {"name": "Ковалькова М.А.", "url": None},
+        {"name": "Шумилова Е.В.", "url": None},
+        {"name": "Бершадская Е.Л.", "url": None},
+        {"name": "Карамян А.Г.", "url": None},
+        {"name": "Кашина Н.В.", "url": None},
+        {"name": "Моисенкова А.Р.", "url": None},
+    ],
+    "ОбЖ и Физ-Культура": [
+        {"name": "Коротченкова С.В.", "url": "https://sites.google.com/site/ucitelskijklub196/%D1%84%D0%B8%D0%B7%D0%BA%D1%83%D0%BB%D1%8C%D1%82%D1%83%D1%80%D0%B0-%D0%B8-%D0%BE%D0%B1%D0%B7%D1%80/korotcenkova-s-v"},
+        {"name": "Латура А.В.", "url": "https://sites.google.com/site/ucitelskijklub196/%D1%84%D0%B8%D0%B7%D0%BA%D1%83%D0%BB%D1%8C%D1%82%D1%83%D1%80%D0%B0-%D0%B8-%D0%BE%D0%B1%D0%B7%D1%80/latura-a-v"},
+        {"name": "Максимова С.А.", "url": "https://sites.google.com/site/ucitelskijklub196/%D1%84%D0%B8%D0%B7%D0%BA%D1%83%D0%BB%D1%8C%D1%82%D1%83%D1%80%D0%B0-%D0%B8-%D0%BE%D0%B1%D0%B7%D1%80/maksimova-s-a"},
+        {"name": "Мохова К.Б.", "url": "https://sites.google.com/site/ucitelskijklub196/%D1%84%D0%B8%D0%B7%D0%BA%D1%83%D0%BB%D1%8C%D1%82%D1%83%D1%80%D0%B0-%D0%B8-%D0%BE%D0%B1%D0%B7%D1%80/mohova-k-b"},
+    ],
+    "Физика и Химия": [
+        {"name": "Чернышова Т.Н.", "url": None},  # Физика
+        {"name": "Сажина Е.Г.", "url": None},    # Химия
+    ],
+    "Биология и География": [
+        {"name": "Александрова Е.В.", "url": None},
+        {"name": "Сангаджиева К.Н.", "url": None},
+        {"name": "Степанова С.В.", "url": None},
+        {"name": "Ярина О.Г.", "url": None},
+    ],
+    "Информатика": [
+        {"name": "Крутоверцева А.В.", "url": None},
+        {"name": "Мездрогина Е.А.", "url": None},
+    ],
+    "Изо и Музыка": [
+        {"name": "Горбачева Е.В.", "url": None},
+        {"name": "Бакланова О.Е.", "url": None},
+    ],
+    "Технология": [
+        {"name": "Хомченкова И.Б.", "url": None},
+    ],
+}
+
 # === ЛОГИРОВАНИЕ ===
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
 # === ХРАНЕНИЕ ДАННЫХ ===
-KNOWN_USERS = set()  # Все пользователи, писавшие боту
-USER_STATES = {}     # Состояния: 'waiting_for_idea', 'in_contact', 'broadcast_text'
-BROADCAST_SENDER = {}  # {user_id: "Админ" или "Администрация гимназии"}
+KNOWN_USERS = set()
+USER_STATES = {}
+BROADCAST_SENDER = {}
 GAME_SCORES = {}
 
 # === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
@@ -54,7 +137,7 @@ async def send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    KNOWN_USERS.add(user_id)  # Запоминаем пользователя
+    KNOWN_USERS.add(user_id)
 
     try:
         await context.bot.send_photo(
@@ -220,13 +303,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif text == "Выбор Предмета":
-        subjects = [
-            "Математика", "Русский Язык и Литература", "Иностранные Языки",
-            "Обществознание", "История", "ОбЖ и Физ-Культура",
-            "Физика и Химия", "Биология и География", "Информатика",
-            "Изо и Музыка", "Технология"
-        ]
-        keyboard = [[InlineKeyboardButton(subj, callback_data=f"subject_{subj}")] for subj in subjects]
+        subjects = list(SUBJECT_TEACHERS.keys())
+        keyboard = []
+        for i in range(0, len(subjects), 2):
+            row = [InlineKeyboardButton(subjects[i], callback_data=f"subject_{subjects[i]}")]
+            if i + 1 < len(subjects):
+                row.append(InlineKeyboardButton(subjects[i+1], callback_data=f"subject_{subjects[i+1]}"))
+            keyboard.append(row)
         keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text("Выберите предмет:", reply_markup=reply_markup)
@@ -316,10 +399,67 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup
         )
 
+    # === ВЫБОР ПРЕДМЕТА ===
     elif query.data.startswith("subject_"):
-        await query.message.edit_text("Пока ничего нет.")
-        await asyncio.sleep(2)
-        await send_main_menu(update, context)
+        subject_name = query.data[len("subject_"):]
+        if subject_name not in SUBJECT_TEACHERS:
+            await query.message.edit_text("Предмет не найден.")
+            await asyncio.sleep(2)
+            await send_main_menu(update, context)
+            return
+
+        teachers = SUBJECT_TEACHERS[subject_name]
+        keyboard = []
+        for i in range(0, len(teachers), 2):
+            row = [InlineKeyboardButton(teachers[i]["name"], callback_data=f"teacher_{subject_name}_{i}")]
+            if i + 1 < len(teachers):
+                row.append(InlineKeyboardButton(teachers[i+1]["name"], callback_data=f"teacher_{subject_name}_{i+1}"))
+            keyboard.append(row)
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_subjects")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text(f"📚 *{subject_name}*\nВыберите учителя:", parse_mode="Markdown", reply_markup=reply_markup)
+
+    elif query.data == "back_to_subjects":
+        subjects = list(SUBJECT_TEACHERS.keys())
+        keyboard = []
+        for i in range(0, len(subjects), 2):
+            row = [InlineKeyboardButton(subjects[i], callback_data=f"subject_{subjects[i]}")]
+            if i + 1 < len(subjects):
+                row.append(InlineKeyboardButton(subjects[i+1], callback_data=f"subject_{subjects[i+1]}"))
+            keyboard.append(row)
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text("Выберите предмет:", reply_markup=reply_markup)
+
+    # === ВЫБОР УЧИТЕЛЯ ===
+    elif query.data.startswith("teacher_"):
+        parts = query.data.split("_", 2)
+        if len(parts) < 3:
+            await query.message.edit_text("Ошибка выбора учителя.")
+            return
+        subject_name = parts[1]
+        try:
+            index = int(parts[2])
+        except ValueError:
+            await query.message.edit_text("Ошибка индекса учителя.")
+            return
+        teachers = SUBJECT_TEACHERS.get(subject_name, [])
+        if index >= len(teachers):
+            await query.message.edit_text("Учитель не найден.")
+            return
+        teacher = teachers[index]
+        name = teacher["name"]
+        url = teacher["url"]
+        link_text = f"[Персональная страница]({url})" if url else "Нет ссылки"
+
+        message = (
+            f"👤 *{name}*\n\n"
+            f"Информация от учителя: пока нет информации.\n\n"
+            f"{link_text}"
+        )
+        keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data=f"subject_{subject_name}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text(message, parse_mode="Markdown", disable_web_page_preview=True, reply_markup=reply_markup)
 
     # === РАССЫЛКА: выбор отправителя ===
     elif query.data == "broadcast_sender_admin":
