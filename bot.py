@@ -3,6 +3,7 @@ import asyncio
 import logging
 import random
 from datetime import datetime
+import httpx
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -20,12 +21,17 @@ from telegram.ext import (
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-ADMIN_CHAT_ID = 1490660804  # Ваш ID
+ADMIN_CHAT_ID = 1490660804
 
-# Рабочая ссылка на изображение
+# === НАСТРОЙКИ ИИ (Groq) ===
+AI_API_KEY = os.environ.get("AI_API_KEY")
+AI_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+AI_MODEL = "llama3-70b-8192"  # отлично работает на русском
+
+# === ИЗОБРАЖЕНИЕ ===
 WELCOME_IMAGE_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxa_g7qQ8If0sQ0ahHso6bCVdFaGcy9_xvfw&s"
 
-# === СПИСОК УЧИТЕЛЕЙ ПО ПРЕДМЕТАМ ===
+# === СПИСОК УЧИТЕЛЕЙ ===
 SUBJECT_TEACHERS = {
     "Математика": [
         {"name": "Деянова И.С.", "url": "https://sites.google.com/site/ucitelskijklub196/kafedra-matematiki/deanova-i-s"},
@@ -86,8 +92,8 @@ SUBJECT_TEACHERS = {
         {"name": "Мохова К.Б.", "url": "https://sites.google.com/site/ucitelskijklub196/%D1%84%D0%B8%D0%B7%D0%BA%D1%83%D0%BB%D1%8C%D1%82%D1%83%D1%80%D0%B0-%D0%B8-%D0%BE%D0%B1%D0%B7%D1%80/mohova-k-b"},
     ],
     "Физика и Химия": [
-        {"name": "Чернышова Т.Н.", "url": None},  # Физика
-        {"name": "Сажина Е.Г.", "url": None},    # Химия
+        {"name": "Чернышова Т.Н.", "url": None},
+        {"name": "Сажина Е.Г.", "url": None},
     ],
     "Биология и География": [
         {"name": "Александрова Е.В.", "url": None},
@@ -118,6 +124,8 @@ KNOWN_USERS = set()
 USER_STATES = {}
 BROADCAST_SENDER = {}
 GAME_SCORES = {}
+AI_MODE_USERS = set()
+AI_CHAT_HISTORY = {}
 
 # === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 
@@ -125,7 +133,7 @@ def main_menu_keyboard():
     return [
         ["Для родителей", "Для учителей"],
         ["Для учеников", "О разработке/оценить"],
-        ["Выбор Предмета"]
+        ["Выбор Предмета", "Чат с ИИ"]
     ]
 
 async def send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -182,6 +190,46 @@ async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text
+
+    # === РЕЖИМ ИИ ===
+    if user_id in AI_MODE_USERS and AI_API_KEY:
+        AI_CHAT_HISTORY.setdefault(user_id, [])
+        AI_CHAT_HISTORY[user_id].append({"role": "user", "content": text})
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    AI_API_URL,
+                    headers={
+                        "Authorization": f"Bearer {AI_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": AI_MODEL,
+                        "messages": [{"role": "system", "content": "Вы — помощник гимназии №196. Отвечайте кратко, по делу, на русском языке."}] +
+                                   AI_CHAT_HISTORY[user_id][-8:],  # последние 8 сообщений
+                        "temperature": 0.7,
+                        "max_tokens": 1000
+                    }
+                )
+                if response.status_code != 200:
+                    raise Exception(f"Ошибка: {response.status_code}")
+
+                data = response.json()
+                ai_reply = data["choices"][0]["message"]["content"].strip()
+                AI_CHAT_HISTORY[user_id].append({"role": "assistant", "content": ai_reply})
+
+                keyboard = [[InlineKeyboardButton("🏠 Вернуться в меню", callback_data="exit_ai")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await update.message.reply_text(ai_reply, reply_markup=reply_markup)
+
+        except Exception as e:
+            logging.error(f"Ошибка ИИ: {e}")
+            await update.message.reply_text(
+                "⚠️ Не удалось получить ответ от нейросети. Попробуйте позже.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Вернуться в меню", callback_data="exit_ai")]])
+            )
+        return
 
     # === РАССЫЛКА ===
     if user_id == ADMIN_CHAT_ID and USER_STATES.get(user_id) == "broadcast_text":
@@ -314,6 +362,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text("Выберите предмет:", reply_markup=reply_markup)
 
+    elif text == "Чат с ИИ":
+        if not AI_API_KEY:
+            await update.message.reply_text("❌ ИИ временно недоступен.")
+            return
+
+        AI_MODE_USERS.add(user_id)
+        AI_CHAT_HISTORY[user_id] = []
+        keyboard = [[InlineKeyboardButton("🏠 Вернуться в меню", callback_data="exit_ai")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(
+            "🧠 Вы вошли в чат с нейросетью.\n"
+            "Задавайте любые вопросы — об учёбе, гимназии, домашних заданиях и т.д.\n\n"
+            "Чтобы выйти — нажмите кнопку ниже.",
+            reply_markup=reply_markup
+        )
+
 # === CALLBACK-ОБРАБОТЧИК ===
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -322,6 +386,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
 
     if query.data == "back_to_menu":
+        await query.message.delete()
+        await send_main_menu(update, context)
+
+    elif query.data == "exit_ai":
+        AI_MODE_USERS.discard(user_id)
+        AI_CHAT_HISTORY.pop(user_id, None)
         await query.message.delete()
         await send_main_menu(update, context)
 
@@ -399,7 +469,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup
         )
 
-    # === ВЫБОР ПРЕДМЕТА ===
     elif query.data.startswith("subject_"):
         subject_name = query.data[len("subject_"):]
         if subject_name not in SUBJECT_TEACHERS:
@@ -431,7 +500,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.edit_text("Выберите предмет:", reply_markup=reply_markup)
 
-    # === ВЫБОР УЧИТЕЛЯ ===
     elif query.data.startswith("teacher_"):
         parts = query.data.split("_", 2)
         if len(parts) < 3:
@@ -461,7 +529,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.edit_text(message, parse_mode="Markdown", disable_web_page_preview=True, reply_markup=reply_markup)
 
-    # === РАССЫЛКА: выбор отправителя ===
     elif query.data == "broadcast_sender_admin":
         BROADCAST_SENDER[ADMIN_CHAT_ID] = "Админ"
         await query.message.edit_text("Напишите текст рассылки.")
@@ -477,7 +544,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # Команды
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("clear", clear_chat))
     application.add_handler(CommandHandler("restart", restart_bot))
@@ -485,7 +551,6 @@ def main():
     application.add_handler(CommandHandler("contact", lambda u, c: u.message.reply_text("Используйте раздел «Для родителей» → «Связь».")))
     application.add_handler(CommandHandler("idea", lambda u, c: u.message.reply_text("Используйте раздел «О разработке» → «Предложить идею».")))
 
-    # Обработчики
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
