@@ -23,8 +23,6 @@ BOT_TOKEN = os.environ["BOT_TOKEN"]
 MAIN_ADMIN_ID = int(os.environ.get("MAIN_ADMIN_ID", "1490660804"))
 REGULAR_ADMINS_STR = os.environ.get("REGULAR_ADMINS", "").strip()
 REGULAR_ADMINS = set(int(x.strip()) for x in REGULAR_ADMINS_STR.split(",") if x.strip().isdigit())
-
-# Все админы (для рассылки)
 ALL_ADMINS = {MAIN_ADMIN_ID} | REGULAR_ADMINS
 
 # === ИЗОБРАЖЕНИЕ ===
@@ -49,8 +47,7 @@ SUBJECT_TEACHERS = {
     "Иностранные Языки": [
         {"name": "Бондаренко Л.И.", "url": None},
         {"name": "Варлашкина Е.А.", "url": None},
-        {"name": "Войлокова И.А.", "url": None},
-        {"name": "Дорощенко С.Г.", "url": None},
+        {"name": "Войлокова И.А.", "url": None},        {"name": "Дорощенко С.Г.", "url": None},
         {"name": "Екимова О.М.", "url": None},
         {"name": "Ефимова С.В.", "url": None},
         {"name": "Иванова Е.В.", "url": None},
@@ -91,16 +88,15 @@ SUBJECT_TEACHERS = {
         {"name": "Мохова К.Б.", "url": "https://sites.google.com/site/ucitelskijklub196/%D1%84%D0%B8%D0%B7%D0%BA%D1%83%D0%BB%D1%8C%D1%82%D1%83%D1%80%D0%B0-%D0%B8-%D0%BE%D0%B1%D0%B7%D1%80/mohova-k-b"},
     ],
     "Физика и Химия": [
-        {"name": "Чернышова Т.Н.", "url": None},
-        {"name": "Сажина Е.Г.", "url": None},
+        {"name": "Чернышова Т.Н.", "url": None},  # Физика
+        {"name": "Сажина Е.Г.", "url": None},    # Химия
     ],
     "Биология и География": [
         {"name": "Александрова Е.В.", "url": None},
         {"name": "Сангаджиева К.Н.", "url": None},
         {"name": "Степанова С.В.", "url": None},
         {"name": "Ярина О.Г.", "url": None},
-    ],
-    "Информатика": [
+    ],    "Информатика": [
         {"name": "Крутоверцева А.В.", "url": None},
         {"name": "Мездрогина Е.А.", "url": None},
     ],
@@ -130,7 +126,7 @@ def main_menu_keyboard():
     return [
         ["Для родителей", "Для учителей"],
         ["Для учеников", "О разработке/оценить"],
-        ["Выбор Предмета"]  # ← ИИ удалён
+        ["Выбор Предмета"]
     ]
 
 async def send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -149,8 +145,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             photo=WELCOME_IMAGE_URL,
             caption="Здравствуйте, вы попали в телеграм бота *Гимназии 196 Красногвардейского района Санкт-Петербурга*.\nВыберите нужный вам пункт.",
-            parse_mode="Markdown"
-        )
+            parse_mode="Markdown"        )
     except Exception as e:
         logging.warning(f"Не удалось загрузить изображение: {e}")
         await update.message.reply_text(
@@ -176,7 +171,6 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Доступ запрещён.")
         return
 
-    # Формируем список обычных админов
     if REGULAR_ADMINS:
         admins_list = "\n".join([f"`{aid}`" for aid in sorted(REGULAR_ADMINS)])
         text = f"👑 *Админ-панель*\n\nОбычные админы:\n{admins_list}"
@@ -200,8 +194,7 @@ async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     keyboard = [
-        [InlineKeyboardButton("👤 Админ", callback_data="broadcast_sender_admin")],
-        [InlineKeyboardButton("🏛 Администрация гимназии", callback_data="broadcast_sender_gym")]
+        [InlineKeyboardButton("👤 Админ", callback_data="broadcast_sender_admin")],        [InlineKeyboardButton("🏛 Администрация гимназии", callback_data="broadcast_sender_gym")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("📤 Выберите отправителя рассылки:", reply_markup=reply_markup)
@@ -212,7 +205,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text
 
-    # === РЕЖИМ НАЗНАЧЕНИЯ АДМИНА ===
+    # === РЕЖИМ НАЗНАЧЕНИЯ/УДАЛЕНИЯ АДМИНА ===
     if USER_STATES.get(MAIN_ADMIN_ID) == "admin_add":
         if user_id == MAIN_ADMIN_ID:
             try:
@@ -222,15 +215,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 elif new_admin_id in REGULAR_ADMINS:
                     await update.message.reply_text("⚠️ Этот пользователь уже админ.")
                 else:
-                    # Обновляем список
-                    new_list = list(REGULAR_ADMINS) + [new_admin_id]
-                    new_list_str = ",".join(str(x) for x in new_list)
-                    # Сохраняем в памяти (на время сессии)
                     REGULAR_ADMINS.add(new_admin_id)
                     ALL_ADMINS.add(new_admin_id)
                     await update.message.reply_text(f"✅ Пользователь `{new_admin_id}` назначен админом.", parse_mode="Markdown")
                     USER_STATES[MAIN_ADMIN_ID] = None
-                    # Перезапуск не требуется, но в реальности нужно сохранять в БД или файл
             except ValueError:
                 await update.message.reply_text("❌ Неверный ID. Отправьте числовой ID.")
         return
@@ -255,8 +243,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # === РАССЫЛКА ===
     if user_id in ALL_ADMINS and USER_STATES.get(user_id) == "broadcast_text":
         sender = BROADCAST_SENDER.get(user_id, "Админ")
-        message_text = text
-        date_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+        message_text = text        date_str = datetime.now().strftime("%d.%m.%Y %H:%M")
 
         success_count = 0
         failed_count = 0
@@ -289,13 +276,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if USER_STATES.get(user_id) == "waiting_for_idea":
         username = update.effective_user.username or "без_юзернейма"
         idea_msg = (
-            f"💡 *Новая идея от пользователя*\n"
-            f"ID: `{user_id}`\n"
+            f"💡 Новая идея от пользователя\n"
+            f"ID: {user_id}\n"
             f"Username: @{username}\n\n"
             f"{text}"
         )
         try:
-            await context.bot.send_message(chat_id=MAIN_ADMIN_ID, text=idea_msg, parse_mode="Markdown")
+            await context.bot.send_message(chat_id=MAIN_ADMIN_ID, text=idea_msg)  # ← БЕЗ Markdown!
         except Exception as e:
             logging.error(f"Ошибка отправки идеи: {e}")
         await update.message.reply_text("✅ Спасибо! Ваша идея отправлена разработчикам.")
@@ -305,18 +292,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # === АНОНИМНАЯ СВЯЗЬ (ВСЕМ АДМИНАМ) ===
-    if USER_STATES.get(user_id) == "in_contact":
-        username = update.effective_user.username or "без_юзернейма"
+    if USER_STATES.get(user_id) == "in_contact":        username = update.effective_user.username or "без_юзернейма"
         contact_msg = (
-            f"📩 *Анонимное сообщение от пользователя*\n"
-            f"ID: `{user_id}`\n"
+            f"📩 Анонимное сообщение от пользователя\n"
+            f"ID: {user_id}\n"
             f"Username: @{username}\n\n"
             f"{text}"
         )
-        # Отправляем всем админам
         for admin_id in ALL_ADMINS:
             try:
-                await context.bot.send_message(chat_id=admin_id, text=contact_msg, parse_mode="Markdown")
+                await context.bot.send_message(chat_id=admin_id, text=contact_msg)  # ← БЕЗ Markdown!
             except Exception as e:
                 logging.warning(f"Не удалось отправить админу {admin_id}: {e}")
         await update.message.reply_text("✅ Сообщение отправлено администрации гимназии!")
@@ -356,8 +341,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
-            "Привет, гимназист! В этом разделе для тебя только игра, "
-            "но также ты можешь предложить идею в \"О разработке\" и мы её прочитаем.",
+            "Привет, гимназист! В этом разделе для тебя только игра, "            "но также ты можешь предложить идею в \"О разработке\" и мы её прочитаем.",
             reply_markup=reply_markup
         )
 
@@ -406,8 +390,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.edit_text("Введите Telegram ID админа для удаления:")
 
     elif query.data == "contact_admin":
-        USER_STATES[user_id] = "in_contact"
-        await query.message.edit_text(
+        USER_STATES[user_id] = "in_contact"        await query.message.edit_text(
             "Напишите своё сообщение. Оно будет анонимно передано администрации гимназии."
         )
 
@@ -456,8 +439,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             (user_choice == "scissors" and bot_choice == "paper") or
             (user_choice == "paper" and bot_choice == "rock")
         ):
-            result = "🎉 Вы победили!"
-            GAME_SCORES[user_id]["user"] += 1
+            result = "🎉 Вы победили!"            GAME_SCORES[user_id]["user"] += 1
         else:
             result = "🤖 Бот победил!"
             GAME_SCORES[user_id]["bot"] += 1
@@ -506,8 +488,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if i + 1 < len(subjects):
                 row.append(InlineKeyboardButton(subjects[i+1], callback_data=f"subject_{subjects[i+1]}"))
             keyboard.append(row)
-        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")])
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")])        reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.edit_text("Выберите предмет:", reply_markup=reply_markup)
 
     elif query.data.startswith("teacher_"):
@@ -556,11 +537,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("clear", clear_chat))
+    application.add_handler(CommandHandler("start", start))    application.add_handler(CommandHandler("clear", clear_chat))
     application.add_handler(CommandHandler("restart", restart_bot))
     application.add_handler(CommandHandler("broadcast", broadcast_start))
-    application.add_handler(CommandHandler("admin", admin_panel))  # ← новая команда
+    application.add_handler(CommandHandler("admin", admin_panel))
     application.add_handler(CommandHandler("contact", lambda u, c: u.message.reply_text("Используйте раздел «Для родителей» → «Связь».")))
     application.add_handler(CommandHandler("idea", lambda u, c: u.message.reply_text("Используйте раздел «О разработке» → «Предложить идею».")))
 
