@@ -47,7 +47,8 @@ SUBJECT_TEACHERS = {
     "Иностранные Языки": [
         {"name": "Бондаренко Л.И.", "url": None},
         {"name": "Варлашкина Е.А.", "url": None},
-        {"name": "Войлокова И.А.", "url": None},        {"name": "Дорощенко С.Г.", "url": None},
+        {"name": "Войлокова И.А.", "url": None},
+        {"name": "Дорощенко С.Г.", "url": None},
         {"name": "Екимова О.М.", "url": None},
         {"name": "Ефимова С.В.", "url": None},
         {"name": "Иванова Е.В.", "url": None},
@@ -88,15 +89,16 @@ SUBJECT_TEACHERS = {
         {"name": "Мохова К.Б.", "url": "https://sites.google.com/site/ucitelskijklub196/%D1%84%D0%B8%D0%B7%D0%BA%D1%83%D0%BB%D1%8C%D1%82%D1%83%D1%80%D0%B0-%D0%B8-%D0%BE%D0%B1%D0%B7%D1%80/mohova-k-b"},
     ],
     "Физика и Химия": [
-        {"name": "Чернышова Т.Н.", "url": None},  # Физика
-        {"name": "Сажина Е.Г.", "url": None},    # Химия
+        {"name": "Чернышова Т.Н.", "url": None},
+        {"name": "Сажина Е.Г.", "url": None},
     ],
     "Биология и География": [
         {"name": "Александрова Е.В.", "url": None},
         {"name": "Сангаджиева К.Н.", "url": None},
         {"name": "Степанова С.В.", "url": None},
         {"name": "Ярина О.Г.", "url": None},
-    ],    "Информатика": [
+    ],
+    "Информатика": [
         {"name": "Крутоверцева А.В.", "url": None},
         {"name": "Мездрогина Е.А.", "url": None},
     ],
@@ -145,7 +147,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             photo=WELCOME_IMAGE_URL,
             caption="Здравствуйте, вы попали в телеграм бота *Гимназии 196 Красногвардейского района Санкт-Петербурга*.\nВыберите нужный вам пункт.",
-            parse_mode="Markdown"        )
+            parse_mode="Markdown"
+        )
     except Exception as e:
         logging.warning(f"Не удалось загрузить изображение: {e}")
         await update.message.reply_text(
@@ -194,7 +197,8 @@ async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     keyboard = [
-        [InlineKeyboardButton("👤 Админ", callback_data="broadcast_sender_admin")],        [InlineKeyboardButton("🏛 Администрация гимназии", callback_data="broadcast_sender_gym")]
+        [InlineKeyboardButton("👤 Админ", callback_data="broadcast_sender_admin")],
+        [InlineKeyboardButton("🏛 Администрация гимназии", callback_data="broadcast_sender_gym")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("📤 Выберите отправителя рассылки:", reply_markup=reply_markup)
@@ -244,6 +248,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in ALL_ADMINS and USER_STATES.get(user_id) == "broadcast_text":
         message_text = text
         date_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+
         success_count = 0
         failed_count = 0
         for chat_id in KNOWN_USERS:
@@ -292,7 +297,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # === АНОНИМНАЯ СВЯЗЬ (ВСЕМ АДМИНАМ) ===
     if USER_STATES.get(user_id) == "in_contact":
-        username = update.effective_user.username or "без_юзернейма"        
+        username = update.effective_user.username or "без_юзернейма"
         contact_msg = (
             f"📩 Анонимное сообщение от пользователя\n"
             f"ID: {user_id}\n"
@@ -342,7 +347,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
             "Привет, гимназист! В этом разделе для тебя только игра, "
-            "но также ты можешь предложить идею в \"О разработке\" и мы её прочитаем.",            reply_markup=reply_markup
+            "но также ты можешь предложить идею в \"О разработке\" и мы её прочитаем.",
+            reply_markup=reply_markup
         )
 
     elif text == "О разработке/оценить":
@@ -391,7 +397,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == "contact_admin":
         USER_STATES[user_id] = "in_contact"
-        await query.message.edit_text(            "Напишите своё сообщение. Оно будет анонимно передано администрации гимназии."
+        await query.message.edit_text(
+            "Напишите своё сообщение. Оно будет анонимно передано администрации гимназии."
         )
 
     elif query.data == "suggest_idea":
@@ -440,7 +447,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             (user_choice == "paper" and bot_choice == "rock")
         ):
             result = "🎉 Вы победили!"
-            GAME_SCORES[user_id]["user"] += 1        else:
+            GAME_SCORES[user_id]["user"] += 1
+        else:
             result = "🤖 Бот победил!"
             GAME_SCORES[user_id]["bot"] += 1
 
@@ -489,7 +497,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 row.append(InlineKeyboardButton(subjects[i+1], callback_data=f"subject_{subjects[i+1]}"))
             keyboard.append(row)
         keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")])
-        reply_markup = InlineKeyboardMarkup(keyboard)        await query.message.edit_text("Выберите предмет:", reply_markup=reply_markup)
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text("Выберите предмет:", reply_markup=reply_markup)
 
     elif query.data.startswith("teacher_"):
         parts = query.data.split("_", 2)
@@ -538,7 +547,8 @@ def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("clear", clear_chat))    application.add_handler(CommandHandler("restart", restart_bot))
+    application.add_handler(CommandHandler("clear", clear_chat))
+    application.add_handler(CommandHandler("restart", restart_bot))
     application.add_handler(CommandHandler("broadcast", broadcast_start))
     application.add_handler(CommandHandler("admin", admin_panel))
     application.add_handler(CommandHandler("contact", lambda u, c: u.message.reply_text("Используйте раздел «Для родителей» → «Связь».")))
@@ -552,4 +562,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
