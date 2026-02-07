@@ -292,7 +292,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # === АНОНИМНАЯ СВЯЗЬ (ВСЕМ АДМИНАМ) ===
     if USER_STATES.get(user_id) == "in_contact":
-        username = update.effective_user.username or "без_юзернейма"        contact_msg = (
+        username = update.effective_user.username or "без_юзернейма"        
+        contact_msg = (
             f"📩 Анонимное сообщение от пользователя\n"
             f"ID: {user_id}\n"
             f"Username: @{username}\n\n"
@@ -551,3 +552,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
